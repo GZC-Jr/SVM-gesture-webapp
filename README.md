@@ -5,7 +5,7 @@
 该系统能够识别用户自定义的多种手势（本项目示例为10种），并实时在摄像头画面中标注出预测结果和置信度。
 
 ## 效果预览
-![alt text](image.png)
+![alt text](demo/image.png)
 
 
 ![手势识别演示](output.gif)
