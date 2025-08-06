@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>手势魔法屋 - 交互版</title>
+    <style>
+        :root {
+            --primary-bg: #f0f4f8; --secondary-bg: #ffffff; --text-color: #333;
+            --header-bg: #2c3e50; --header-text: #ecf0f1; --accent-color: #3498db;
+            --success-color: #2ecc71; --error-color: #e74c3c;
+            --card-shadow: 0 4px 8px rgba(0,0,0,0.1); --border-radius: 8px;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 0; background-color: var(--primary-bg); color: var(--text-color); line-height: 1.6; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        header { background-color: var(--header-bg); color: var(--header-text); padding: 20px 0; text-align: center; border-bottom: 4px solid var(--accent-color); }
+        header h1 { margin: 0; font-size: 2.5rem; }
+        header p { margin: 5px 0 0; font-size: 1.1rem; opacity: 0.9; }
+        .main-app { display: flex; flex-wrap: wrap; gap: 30px; margin-top: 30px; background: var(--secondary-bg); padding: 20px; border-radius: var(--border-radius); box-shadow: var(--card-shadow); }
+        .video-container { flex: 1; min-width: 320px; display: flex; flex-direction: column; align-items: center; }
+        .video-container h2 { margin-top: 0; color: var(--header-bg); }
+        #webcam { width: 100%; max-width: 640px; height: auto; border-radius: var(--border-radius); background-color: #000; transform: scaleX(-1); }
+        .result-container { flex: 1; min-width: 300px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+        #status { font-size: 1.2rem; font-weight: bold; margin-bottom: 20px; }
+        #gesture-label { font-size: 1.5rem; font-weight: bold; }
+        #gesture-result { font-size: 8rem; font-weight: bold; color: var(--accent-color); margin: 10px 0; line-height: 1; min-height: 130px; }
+        .interactive-zone { text-align: center; background: #e9ecef; padding: 20px; border-radius: var(--border-radius); margin-top: 20px; min-height: 100px; display: flex; align-items: center; justify-content: center; flex-direction: column; }
+        .interactive-zone h3 { margin: 0 0 10px 0; color: var(--header-bg); }
+        .interactive-zone .placeholder { color: #7f8c8d; }
+        .media-controls, .presentation-controls { font-size: 3rem; }
+        .presentation-controls span { font-size: 1.5rem; vertical-align: middle; margin-left: 15px; }
+        .features-section { margin-top: 40px; }
+        .category-title { font-size: 2rem; color: var(--header-bg); border-bottom: 2px solid var(--accent-color); padding-bottom: 10px; margin-bottom: 20px; }
+        .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
+        .feature-card { background-color: var(--secondary-bg); border-radius: var(--border-radius); box-shadow: var(--card-shadow); padding: 25px; transition: transform 0.3s ease, box-shadow 0.3s ease; border: 3px solid transparent; }
+        .feature-card.active { border-color: var(--accent-color); transform: translateY(-5px); box-shadow: 0 8px 16px rgba(52, 152, 219, 0.3); }
+        .feature-card h3 { margin-top: 0; color: var(--accent-color); font-size: 1.5rem; }
+        .activate-btn { background-color: var(--accent-color); color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 1rem; font-weight: bold; margin-top: 15px; transition: background-color 0.3s; }
+        .activate-btn:hover { background-color: #2980b9; }
+        .feature-card.active .activate-btn { background-color: var(--error-color); }
+        footer { text-align: center; padding: 20px; margin-top: 40px; color: #7f8c8d; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>手势魔法屋 - 交互版</h1>
+        <p>点击下方的玩法卡片以激活互动模式</p>
+    </header>
+
+    <div class="container">
+        <!-- 主应用交互区 -->
+        <section class="main-app">
+            <div class="video-container">
+                <h2>实时摄像头</h2>
+                <video id="webcam" autoplay muted playsinline></video>
+                <canvas id="canvas" style="display: none;"></canvas>
+            </div>
+            <div class="result-container">
+                <div id="status">正在请求摄像头权限...</div>
+                <div id="gesture-label">当前识别手势</div>
+                <div id="gesture-result">...</div>
+                <div class="interactive-zone" id="interactive-zone">
+                    <p class="placeholder">请先在下方选择一个玩法以开始互动</p>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 所有玩法展示区 -->
+        <section class="features-section">
+            <h2 class="category-title">⚙️ 智能控制与效率工具</h2>
+            <div class="feature-grid">
+                <div class="feature-card" id="card-media-player">
+                    <h3>玩法四：非接触式媒体播放器</h3>
+                    <p>用手势来控制视频或音乐的播放。</p>
+                    <button class="activate-btn" data-mode="media-player">激活此模式</button>
+                </div>
+                <div class="feature-card" id="card-presentation">
+                    <h3>玩法五：演示文稿遥控器</h3>
+                    <p>在做PPT演示时，用手势翻页。</p>
+                    <button class="activate-btn" data-mode="presentation">激活此模式</button>
+                </div>
+            </div>
+            
+            <h2 class="category-title" style="margin-top: 40px;">🎮 游戏与娱乐 (即将推出)</h2>
+            <div class="feature-grid">
+                <div class="feature-card" style="opacity: 0.6;"><h3>手势版“水果忍者”</h3><p>实现较为复杂，敬请期待。</p></div>
+                <div class="feature-card" style="opacity: 0.6;"><h3>手势“节奏大师”</h3><p>实现较为复杂，敬请期待。</p></div>
+                <div class="feature-card" style="opacity: 0.6;"><h3>魔法咒语施法</h3><p>实现较为复杂，敬请期待。</p></div>
+            </div>
+            
+        </section>
+    </div>
+    
+    <footer>
+        <p>© 2024 Gesture WebApp Project. Interactive Demo.</p>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const video = document.getElementById('webcam');
+            const canvas = document.getElementById('canvas');
+            const context = canvas.getContext('2d');
+            const statusEl = document.getElementById('status');
+            const gestureResultEl = document.getElementById('gesture-result');
+            const interactiveZone = document.getElementById('interactive-zone');
+            const activateBtns = document.querySelectorAll('.activate-btn');
+
+            const WS_URL = 'ws://127.0.0.1:8000/ws';
+            let ws;
+            let activeMode = 'none';
+            let intervalId;
+            const FRAME_RATE = 10; // 每秒向后端发送10帧
+
+            // 交互状态变量
+            let isPlaying = false;
+            let slideNumber = 1;
+
+            // 启动摄像头
+            async function setupCamera() {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    video.srcObject = stream;
+                    video.addEventListener('loadeddata', () => {
+                        statusEl.textContent = '摄像头已启动，正在连接后端...';
+                        statusEl.style.color = 'orange';
+                        connectWebSocket();
+                    });
+                } catch (err) {
+                    statusEl.textContent = '❌ 无法访问摄像头，请授予权限并刷新页面。';
+                    statusEl.style.color = var(--error-color);
+                    console.error("Error accessing camera: ", err);
+                }
+            }
+
+            // 连接WebSocket
+            function connectWebSocket() {
+                ws = new WebSocket(WS_URL);
+
+                ws.onopen = () => {
+                    console.log('Connected to WebSocket server.');
+                    statusEl.textContent = '✅ 后端已连接';
+                    statusEl.style.color = var(--success-color);
+                    // 开始定期发送视频帧
+                    intervalId = setInterval(sendFrame, 1000 / FRAME_RATE);
+                };
+
+                ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    if (data.gesture !== undefined) {
+                        gestureResultEl.textContent = data.gesture === null ? '?' : data.gesture;
+                        handleGesture(data.gesture);
+                    }
+                };
+
+                ws.onclose = () => {
+                    console.log('WebSocket closed. Reconnecting...');
+                    statusEl.textContent = '🔌 连接已断开，正在重连...';
+                    statusEl.style.color = var(--error-color);
+                    clearInterval(intervalId);
+                    setTimeout(connectWebSocket, 3000);
+                };
+
+                ws.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    statusEl.textContent = '❌ 后端连接失败，请检查后端服务是否已启动。';
+                    statusEl.style.color = var(--error-color);
+                    ws.close();
+                };
+            }
+
+            // 发送视频帧到后端
+            function sendFrame() {
+                if (ws.readyState === WebSocket.OPEN) {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    // 将视频帧翻转回来，因为CSS中已经翻转了显示
+                    context.save();
+                    context.scale(-1, 1);
+                    context.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
+                    context.restore();
+                    
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.5); // 0.5是质量压缩
+                    ws.send(JSON.stringify({ image: dataUrl }));
+                }
+            }
+
+            // 处理收到的手势
+            function handleGesture(gesture) {
+                if (gesture === null || gesture === 'Unknown') return;
+                
+                switch (activeMode) {
+                    case 'media-player':
+                        if (gesture == '1') { isPlaying = !isPlaying; } // 播放/暂停
+                        if (gesture == '5') { /* 模拟音量+ */ }
+                        if (gesture == '4') { /* 模拟音量- */ }
+                        updateMediaUI();
+                        break;
+                    case 'presentation':
+                        if (gesture == '1' || gesture == '2') { slideNumber++; } // 下一页
+                        if (gesture == '3') { slideNumber = Math.max(1, slideNumber - 1); } // 上一页
+                        if (gesture == '5') { slideNumber = 5; } // 跳转到第5页
+                        updatePresentationUI();
+                        break;
+                }
+            }
+            
+            // 更新交互区域的UI
+            function updateInteractiveUI(mode) {
+                activeMode = mode;
+                switch (mode) {
+                    case 'media-player':
+                        isPlaying = false;
+                        updateMediaUI();
+                        break;
+                    case 'presentation':
+                        slideNumber = 1;
+                        updatePresentationUI();
+                        break;
+                    case 'none':
+                    default:
+                        interactiveZone.innerHTML = `<p class="placeholder">请先在下方选择一个玩法以开始互动</p>`;
+                        break;
+                }
+            }
+            
+            function updateMediaUI() {
+                interactiveZone.innerHTML = `
+                    <h3>媒体播放器模式</h3>
+                    <div class="media-controls">${isPlaying ? '❚❚' : '▶'}</div>
+                    <p>手势[1]播放/暂停 [5]音量+ [4]音量-</p>
+                `;
+            }
+
+            function updatePresentationUI() {
+                interactiveZone.innerHTML = `
+                    <h3>演示文稿模式</h3>
+                    <div class="presentation-controls">
+                        📜<span>第 ${slideNumber} 页</span>
+                    </div>
+                    <p>手势[1/2]下一页 [3]上一页 [5]跳至第5页</p>
+                `;
+            }
+            
+            // 绑定按钮点击事件
+            activateBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const selectedMode = btn.dataset.mode;
+                    
+                    if (btn.parentElement.classList.contains('active')) {
+                        // 如果已经是激活状态，则取消
+                        btn.parentElement.classList.remove('active');
+                        btn.textContent = '激活此模式';
+                        updateInteractiveUI('none');
+                    } else {
+                        // 移除所有其他的激活状态
+                        document.querySelectorAll('.feature-card.active').forEach(card => {
+                            card.classList.remove('active');
+                            card.querySelector('.activate-btn').textContent = '激活此模式';
+                        });
+                        
+                        // 激活当前点击的
+                        btn.parentElement.classList.add('active');
+                        btn.textContent = '停止模式';
+                        updateInteractiveUI(selectedMode);
+                    }
+                });
+            });
+
+            // 启动流程
+            setupCamera();
+        });
+    </script>
+</body>
+</html>

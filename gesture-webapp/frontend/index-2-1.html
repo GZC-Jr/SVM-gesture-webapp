@@ -140,7 +140,7 @@
                 <option value="media-player">玩法四：非接触式媒体播放器</option>
                 <option value="presentation">玩法五：演示文稿遥控器</option>
                 <option value="smart-home">玩法六：智能家居快捷指令</option>
-                <option value="magic-spell">玩法三：忍术结印模拟器</option>
+                <option value="magic-spell">玩法三：魔法咒语施法</option>
                 <option value="pin-input">玩法八：非接触式PIN码输入</option>
             </select>
             <div id="interactive-area">
@@ -172,21 +172,11 @@
                     </div>
                 </div>
 
-                <!-- 忍术结印面板 -->
+                <!-- 魔法咒语面板 -->
                 <div id="magic-spell-panel" class="interactive-panel">
-                    <div style="display: flex; gap: 20px; width: 100%;">
-                        <div style="flex: 1;">
-                            <h3>当前结印序列:</h3>
-                            <div id="spell-log" class="spell-log" style="font-size: 1.8rem; text-align: center;"></div>
-                            <div id="spell-feedback" class="feedback" style="min-height: 30px; margin-top: 15px; font-size: 1.8rem; font-weight: bold; color: var(--success-color);"></div>
-                        </div>
-                        <div style="flex: 1; border-left: 2px solid #ddd; padding-left: 20px;">
-                            <h3>忍术卷轴 (Jutsu Scroll)</h3>
-                            <ul id="jutsu-list" style="list-style-type: none; padding: 0; font-size: 1.1rem;">
-                                <!-- 忍术列表将由JavaScript动态生成 -->
-                            </ul>
-                        </div>
-                    </div>
+                    <h3>当前咒语序列:</h3>
+                    <div id="spell-log" class="spell-log"></div>
+                    <div id="spell-feedback" class="feedback"></div>
                 </div>
 
                 <!-- PIN码输入面板 -->
@@ -258,7 +248,6 @@
             // === 2. 初始化状态变量 ===
             let lastGesture = null; // 用于防止重复触发
             let currentMode = 'none'; // 当前玩法模式
-            let ninjutsu = {}; // 用于存储忍术定义
             
             // 各模式的状态
             let isPlaying = false;
@@ -323,28 +312,10 @@
                 acIcon.classList.remove('on');
                 acStatus.textContent = '关闭';
 
-                // 忍术结印初始化
-                ninjutsu = {
-                    '豪火球之术 (Fire Ball)': '7-1-5', // 简化版，你可以自定义
-                    '水龙弹之术 (Water Dragon)': '2-1-3-4',
-                    '千鸟 (Chidori)': '8-1-8-1',
-                    '影分身之术 (Shadow Clone)': '9-9-9',
-                    '通灵之术 (Summoning)': '4-3-2-1-0'
-                };
+                // 魔法
                 spellSequence = [];
-                spellLog.textContent = '...';
-                spellFeedback.textContent = '准备结印...';
-
-                // 动态生成忍术列表
-                const jutsuListEl = document.getElementById('jutsu-list');
-                jutsuListEl.innerHTML = ''; // 清空旧列表
-                for (const name in ninjutsu) {
-                    const sequence = ninjutsu[name];
-                    const listItem = document.createElement('li');
-                    listItem.innerHTML = `<strong>${name}:</strong> 结印顺序 -> ${sequence}`;
-                    listItem.style.marginBottom = '10px';
-                    jutsuListEl.appendChild(listItem);
-                }
+                spellLog.textContent = '';
+                spellFeedback.textContent = '';
 
                 // PIN
                 pinCode = "";
@@ -469,68 +440,25 @@
                 }
             }
 
-            //  function handleMagicSpell(gesture) {
-            //     spellFeedback.textContent = ''; // 清除上次反馈
-            //     spellSequence.push(gesture);
-            //     spellLog.textContent = spellSequence.join(' -> ');
-
-            //     // 检查咒语
-            //     const sequenceStr = spellSequence.join('-');
-            //     if (sequenceStr.endsWith('7-3-5')) {
-            //         spellFeedback.textContent = '🔥 火球术已释放！';
-            //         spellSequence = []; // 成功后清空
-            //     } else if (sequenceStr.endsWith('1-2-3-4')) {
-            //         spellFeedback.textContent = '🛡️ 护盾已生成！';
-            //         spellSequence = [];
-            //     }
-
-            //     // 防止序列过长
-            //     if (spellSequence.length > 10) {
-            //         spellSequence.shift(); // 移除最早的一个
-            //     }
-            // }
-
-            let jutsuTimeout = null; // 用于超时重置
-
-            function handleMagicSpell(gesture) { // 函数名保持不变以兼容事件分发
-                clearTimeout(jutsuTimeout); // 每次有新输入，就重置超时计时器
-
+            function handleMagicSpell(gesture) {
+                spellFeedback.textContent = ''; // 清除上次反馈
                 spellSequence.push(gesture);
-                spellLog.textContent = spellSequence.join(' → ');
+                spellLog.textContent = spellSequence.join(' -> ');
 
-                let jutsuFound = false;
-                // 检查当前序列是否匹配任何一个忍术
-                for (const name in ninjutsu) {
-                    const requiredSequence = ninjutsu[name];
-                    if (spellSequence.join('-') === requiredSequence) {
-                        // 完全匹配！
-                        spellFeedback.textContent = `忍术发动成功: ${name}！`;
-                        spellFeedback.style.color = 'var(--success-color)';
-                        
-                        // 模拟特效
-                        const icons = {'火':'🔥', '水':'💧', '雷':'⚡️', '影':'👥', '通':'🐸'};
-                        const icon = Object.keys(icons).find(key => name.includes(key)) || '✨';
-                        spellLog.textContent = icon.repeat(5);
-
-                        spellSequence = []; // 成功后清空序列
-                        jutsuFound = true;
-                        break; // 找到后就不用再检查了
-                    }
-                }
-
-                if (!jutsuFound) {
-                    // 如果没有匹配成功，显示提示信息
-                    spellFeedback.textContent = '...继续结印...';
-                    spellFeedback.style.color = 'var(--text-color)';
-                }
-
-                // 设置一个超时，如果3秒内没有新的结印，则序列自动重置
-                jutsuTimeout = setTimeout(() => {
+                // 检查咒语
+                const sequenceStr = spellSequence.join('-');
+                if (sequenceStr.endsWith('7-3-5')) {
+                    spellFeedback.textContent = '🔥 火球术已释放！';
+                    spellSequence = []; // 成功后清空
+                } else if (sequenceStr.endsWith('1-2-3-4')) {
+                    spellFeedback.textContent = '🛡️ 护盾已生成！';
                     spellSequence = [];
-                    spellLog.textContent = '...';
-                    spellFeedback.textContent = '查克拉中断，结印失败。';
-                    spellFeedback.style.color = 'var(--warning-color)';
-                }, 3000); // 3秒超时
+                }
+
+                // 防止序列过长
+                if (spellSequence.length > 10) {
+                    spellSequence.shift(); // 移除最早的一个
+                }
             }
 
             function handlePinInput(gesture) {

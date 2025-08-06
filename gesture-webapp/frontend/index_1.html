@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>实时手势识别</title>
+    <style>
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; background-color: #f0f0f0; }
+        #container { position: relative; width: 640px; height: 480px; border: 2px solid #333; }
+        video, canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        #result { margin-top: 20px; font-size: 4em; color: #d9534f; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>实时手势识别</h1>
+    <div id="container">
+        <video id="video" autoplay playsinline></video>
+        <canvas id="canvas"></canvas>
+    </div>
+    <div id="result">等待手势...</div>
+
+    <script>
+        // 1. 获取HTML元素
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const resultDiv = document.getElementById('result');
+
+        // 2. 设置WebSocket连接
+        const ws = new WebSocket('ws://127.0.0.1:8000/ws');
+
+        ws.onopen = () => {
+            console.log('成功连接到WebSocket服务器!');
+        };
+
+        ws.onmessage = (event) => {
+            // 接收到后端发来的JSON数据
+            const data = JSON.parse(event.data);
+            console.log('收到结果:', data);
+            // 更新页面上的手势数字
+            resultDiv.textContent = `手势: ${data.gesture} (置信度: ${data.confidence.toFixed(2)})`;
+        };
+
+        ws.onclose = () => {
+            console.log('WebSocket连接已关闭。');
+            resultDiv.textContent = '连接已断开';
+        };
+
+        ws.onerror = (error) => {
+            console.error('WebSocket 错误: ', error);
+            resultDiv.textContent = '连接错误';
+        };
+
+        // 3. 访问用户摄像头
+        async function setupCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+            } catch (err) {
+                console.error("无法访问摄像头: ", err);
+                alert("无法访问摄像头，请检查权限。");
+            }
+        }
+
+        // 4. 定时将视频帧发送到后端
+        function sendFrame() {
+            // 设置canvas尺寸与视频一致
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            // 将当前视频帧画到canvas上 (翻转一下，像照镜子)
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            ctx.setTransform(1, 0, 0, 1, 0, 0); // 重置变换
+
+            // 从canvas提取图像数据为JPEG格式的字节流
+            canvas.toBlob((blob) => {
+                // 只有当WebSocket连接打开时才发送
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(blob);
+                }
+            }, 'image/jpeg', 0.5); // 0.5是图像质量，可以降低以提高速度
+        }
+
+        // 5. 启动所有流程
+        setupCamera().then(() => {
+            video.onloadedmetadata = () => {
+                // 每100毫秒（每秒10次）发送一帧
+                setInterval(sendFrame, 100);
+            };
+        });
+
+    </script>
+</body>
+</html>
