@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>手势打靶游戏 v2.0</title>
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --danger-color: #e74c3c;
+            --success-color: #2ecc71;
+            --bg-color: #2c3e50;
+            --text-color: #ecf0f1;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            overflow: hidden;
+        }
+
+        #game-wrapper {
+            position: relative;
+            width: 800px;
+            height: 600px;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            border: 3px solid var(--primary-color);
+            border-radius: 16px;
+            overflow: hidden;
+            background-color: #000;
+        }
+
+        video, #game-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            transform: scaleX(-1);
+        }
+
+        #game-canvas {
+            z-index: 10; /* Canvas在最上层，用于绘制游戏元素 */
+        }
+
+        video {
+            opacity: 0.7; /* 让摄像头画面作为背景，稍微暗一点 */
+        }
+
+        /* 游戏UI层 */
+        #game-ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            box-sizing: border-box;
+            pointer-events: none; /* 让鼠标可以穿透UI层 */
+        }
+
+        .top-bar, .bottom-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 2em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+        }
+        
+        .combo-meter {
+            color: #f1c40f;
+            font-weight: bold;
+        }
+
+        /* 游戏覆盖层 (开始/结束界面) */
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 30;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            transition: opacity 0.5s;
+        }
+
+        #overlay h1 { font-size: 4em; margin-bottom: 20px; }
+        #overlay p { font-size: 1.5em; }
+        #overlay button {
+            font-size: 1.5em;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            background-color: var(--primary-color);
+            color: white;
+            cursor: pointer;
+            pointer-events: all; /* 确保按钮可以被点击 */
+            transition: transform 0.2s;
+        }
+        #overlay button:hover { transform: scale(1.1); }
+
+        /* 倒计时样式 */
+        #countdown {
+            font-size: 10em;
+            font-weight: bold;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 25;
+            color: white;
+            text-shadow: 0 0 20px var(--primary-color);
+            display: none; /* 默认隐藏 */
+        }
+        
+        .hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-wrapper">
+        <div id="game-container">
+            <video id="video" autoplay playsinline muted></video>
+            <canvas id="game-canvas"></canvas>
+        </div>
+        <div id="game-ui" class="hidden">
+            <div class="top-bar">
+                <div id="score">分数: 0</div>
+                <div id="timer">时间: 60</div>
+            </div>
+            <div class="bottom-bar">
+                <div class="combo-meter" id="combo">连击: 0x</div>
+                <div id="gesture-display">手势: ?</div>
+            </div>
+        </div>
+        <div id="countdown"></div>
+        <div id="overlay">
+            <h1>手势打靶游戏</h1>
+            <p>在60秒内尽可能多地击中目标！</p>
+            <button id="start-button">开始游戏</button>
+        </div>
+    </div>
+
+    <!-- 音效文件 -->
+    <audio id="hit-sound" src="https://actions.google.com/sounds/v1/impacts/hit_strike.ogg" preload="auto"></audio>
+    <audio id="combo-sound" src="https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg" preload="auto"></audio>
+    <audio id="end-sound" src="https://actions.google.com/sounds/v1/emergency/beeper_emergency_call.ogg" preload="auto"></audio>
+
+    <script>
+        // --- 1. 获取所有DOM元素 ---
+        const video = document.getElementById('video');
+        const gameCanvas = document.getElementById('game-canvas');
+        const ctx = gameCanvas.getContext('2d');
+        const scoreDisplay = document.getElementById('score');
+        const timerDisplay = document.getElementById('timer');
+        const comboDisplay = document.getElementById('combo');
+        const gestureDisplay = document.getElementById('gesture-display');
+        const overlay = document.getElementById('overlay');
+        const startButton = document.getElementById('start-button');
+        const countdownDisplay = document.getElementById('countdown');
+        const gameUI = document.getElementById('game-ui');
+        const hitSound = document.getElementById('hit-sound');
+        const comboSound = document.getElementById('combo-sound');
+        const endSound = document.getElementById('end-sound');
+
+        // --- 2. 游戏状态管理 ---
+        const gameState = {
+            score: 0,
+            timeLeft: 60,
+            combo: 0,
+            lastGesture: null,
+            gameIsRunning: false,
+            targets: [],
+            particles: [],
+        };
+
+        // --- 3. WebSocket 和摄像头设置 ---
+        const ws = new WebSocket('ws://127.0.0.1:8000/ws');
+        ws.onmessage = (event) => {
+            if (!gameState.gameIsRunning) return;
+            const data = JSON.parse(event.data);
+            gameState.lastGesture = data.gesture;
+            gestureDisplay.textContent = `手势: ${gameState.lastGesture}`;
+            checkHit(data);
+        };
+
+        async function setupCamera() {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            video.srcObject = stream;
+            return new Promise((resolve) => {
+                video.onloadedmetadata = () => {
+                    gameCanvas.width = video.videoWidth;
+                    gameCanvas.height = video.videoHeight;
+                    resolve();
+                };
+            });
+        }
+        
+        function sendFrame() {
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCanvas.width = video.videoWidth;
+            tempCanvas.height = video.videoHeight;
+            tempCtx.drawImage(video, 0, 0);
+            tempCanvas.toBlob((blob) => {
+                if (ws.readyState === WebSocket.OPEN) ws.send(blob);
+            }, 'image/jpeg', 0.5);
+        }
+
+        // --- 4. 游戏核心逻辑 ---
+        function startGame() {
+            overlay.classList.add('hidden');
+            countdownDisplay.style.display = 'block';
+            let count = 3;
+            countdownDisplay.textContent = count;
+            
+            const countdownInterval = setInterval(() => {
+                count--;
+                if (count > 0) {
+                    countdownDisplay.textContent = count;
+                } else {
+                    clearInterval(countdownInterval);
+                    countdownDisplay.style.display = 'none';
+                    
+                    // 初始化游戏
+                    Object.assign(gameState, {
+                        score: 0, timeLeft: 60, combo: 0, gameIsRunning: true, targets: []
+                    });
+                    updateUI();
+                    gameUI.classList.remove('hidden');
+                    
+                    // 启动定时器
+                    const gameTimer = setInterval(() => {
+                        gameState.timeLeft--;
+                        updateUI();
+                        if (gameState.timeLeft <= 0) {
+                            clearInterval(gameTimer);
+                            endGame();
+                        }
+                    }, 1000);
+                    
+                    spawnNewTarget();
+                }
+            }, 1000);
+        }
+
+        function endGame() {
+            gameState.gameIsRunning = false;
+            endSound.play();
+            overlay.querySelector('h1').textContent = '游戏结束!';
+            overlay.querySelector('p').textContent = `你的最终得分是: ${gameState.score}`;
+            overlay.querySelector('button').textContent = '再玩一次';
+            overlay.classList.remove('hidden');
+            gameUI.classList.add('hidden');
+        }
+
+        function spawnNewTarget() {
+            if (!gameState.gameIsRunning) return;
+            
+            const number = Math.floor(Math.random() * 5) + 1;
+            const radius = Math.max(20, 60 - gameState.score / 20); // 难度递增：分数越高，靶心越小
+            const x = Math.random() * (gameCanvas.width - radius * 2) + radius;
+            const y = Math.random() * (gameCanvas.height - radius * 2) + radius;
+            const speed = gameState.score / 100; // 难度递增：分数越高，移动越快
+            const angle = Math.random() * Math.PI * 2;
+
+            gameState.targets.push({
+                number, x, y, radius,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+            });
+        }
+        
+        function createParticles(x, y) {
+            for (let i = 0; i < 30; i++) {
+                gameState.particles.push({
+                    x, y,
+                    vx: (Math.random() - 0.5) * 10,
+                    vy: (Math.random() - 0.5) * 10,
+                    alpha: 1,
+                    color: `hsl(${Math.random() * 60 + 20}, 100%, 50%)` // 黄橙色系
+                });
+            }
+        }
+
+        function checkHit(prediction) {
+            if (prediction.confidence < 0.85) return;
+
+            let hit = false;
+            gameState.targets.forEach((target, index) => {
+                if (prediction.gesture === target.number) {
+                    // 移除靶心
+                    gameState.targets.splice(index, 1);
+                    hit = true;
+                    
+                    // 增加分数和连击
+                    gameState.combo++;
+                    const scoreToAdd = 10 + gameState.combo * 2; // 连击奖励
+                    gameState.score += scoreToAdd;
+                    
+                    // 播放音效和创建爆炸粒子
+                    hitSound.currentTime = 0;
+                    hitSound.play();
+                    createParticles(target.x, target.y);
+                    if (gameState.combo > 0 && gameState.combo % 5 === 0) {
+                        comboSound.play();
+                    }
+                    
+                    // 生成新靶心
+                    spawnNewTarget();
+                }
+            });
+
+            if (!hit) {
+                gameState.combo = 0; // 错误手势或未击中断开连击
+            }
+            updateUI();
+        }
+        
+        function updateUI() {
+            scoreDisplay.textContent = `分数: ${gameState.score}`;
+            timerDisplay.textContent = `时间: ${gameState.timeLeft}`;
+            comboDisplay.textContent = `连击: ${gameState.combo}x`;
+        }
+
+        // --- 5. 游戏渲染循环 ---
+        function gameLoop() {
+            ctx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
+
+            if (gameState.gameIsRunning) {
+                // 更新并绘制靶心
+                gameState.targets.forEach(target => {
+                    target.x += target.vx;
+                    target.y += target.vy;
+                    // 边界碰撞
+                    if (target.x - target.radius < 0 || target.x + target.radius > gameCanvas.width) target.vx *= -1;
+                    if (target.y - target.radius < 0 || target.y + target.radius > gameCanvas.height) target.vy *= -1;
+                    
+                    ctx.fillStyle = 'rgba(231, 76, 60, 0.9)';
+                    ctx.beginPath();
+                    ctx.arc(target.x, target.y, target.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.fillStyle = 'white';
+                    ctx.font = `bold ${target.radius * 0.8}px Arial`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(target.number, target.x, target.y);
+                });
+                
+                // 更新并绘制粒子
+                gameState.particles.forEach((p, index) => {
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.alpha -= 0.04;
+                    if (p.alpha <= 0) {
+                        gameState.particles.splice(index, 1);
+                    } else {
+                        ctx.globalAlpha = p.alpha;
+                        ctx.fillStyle = p.color;
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.globalAlpha = 1.0;
+                    }
+                });
+            }
+            
+            requestAnimationFrame(gameLoop);
+        }
+
+        // --- 6. 事件监听和启动 ---
+        startButton.addEventListener('click', startGame);
+
+        setupCamera().then(() => {
+            setInterval(sendFrame, 100);
+            gameLoop();
+        });
+    </script>
+</body>
+</html>

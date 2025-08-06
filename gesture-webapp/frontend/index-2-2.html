@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>手势魔法屋 - Gesture Magic Hub</title>
+    <style>
+        :root {
+            --primary-bg: #f0f4f8; --secondary-bg: #ffffff; --text-color: #333;
+            --header-bg: #2c3e50; --header-text: #ecf0f1; --accent-color: #3498db;
+            --card-shadow: 0 4px 8px rgba(0,0,0,0.1); --border-radius: 8px;
+            --success-color: #27ae60; --error-color: #e74c3c; --info-color: #f39c12;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 0; background-color: var(--primary-bg); color: var(--text-color); line-height: 1.6; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        header { background-color: var(--header-bg); color: var(--header-text); padding: 20px 0; text-align: center; border-bottom: 4px solid var(--accent-color); }
+        header h1 { margin: 0; font-size: 2.5rem; }
+        header p { margin: 5px 0 0; font-size: 1.1rem; opacity: 0.9; }
+        .main-app { position: relative; display: flex; flex-wrap: wrap; gap: 30px; margin-top: 30px; background: var(--secondary-bg); padding: 20px; border-radius: var(--border-radius); box-shadow: var(--card-shadow); }
+        .video-container { flex: 1; min-width: 300px; display: flex; flex-direction: column; align-items: center; }
+        .video-container h2 { margin-top: 0; color: var(--accent-color); }
+        #video-feed { width: 100%; max-width: 640px; height: auto; border-radius: var(--border-radius); border: 2px solid #ddd; background-color: #000; }
+        .result-container { flex: 1; min-width: 300px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+        #status { font-size: 1.2rem; color: #7f8c8d; margin-bottom: 15px; }
+        #gesture-label { font-size: 1.5rem; font-weight: bold; }
+        #gesture-result { font-size: 8rem; font-weight: bold; color: var(--accent-color); margin: 5px 0; line-height: 1; }
+        #action-feedback { font-size: 1.1rem; font-weight: bold; min-height: 25px; margin-top: 10px; transition: color 0.3s ease; }
+        .features-section { margin-top: 40px; }
+        .category-title { font-size: 2rem; color: var(--header-bg); border-bottom: 2px solid var(--accent-color); padding-bottom: 10px; margin-bottom: 20px; }
+        .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; }
+        .feature-card { background-color: var(--secondary-bg); border-radius: var(--border-radius); box-shadow: var(--card-shadow); padding: 25px; transition: all 0.3s ease; border: 2px solid transparent; display: flex; flex-direction: column; }
+        .feature-card.active { transform: translateY(-5px); box-shadow: 0 8px 24px rgba(52, 152, 219, 0.4); border-color: var(--accent-color); }
+        .feature-card h3 { margin-top: 0; color: var(--accent-color); font-size: 1.5rem; }
+        .feature-card p { margin-bottom: 15px; flex-grow: 1; }
+        .activate-btn { background-color: var(--accent-color); color: white; border: none; padding: 12px 15px; border-radius: 5px; cursor: pointer; font-size: 1rem; font-weight: bold; margin-top: 15px; width: 100%; transition: background-color 0.3s ease; }
+        .activate-btn:hover { background-color: #2980b9; }
+        .activate-btn.deactivate { background-color: var(--success-color); }
+        footer { text-align: center; padding: 20px; margin-top: 40px; color: #7f8c8d; }
+
+        /* --- NEW: Game Overlay and Canvas --- */
+        #game-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(44, 62, 80, 0.85);
+            display: none; /* Hidden by default */
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            border-radius: var(--border-radius);
+            flex-direction: column;
+        }
+        #game-canvas {
+            background-color: transparent;
+            border-radius: var(--border-radius);
+        }
+        #close-game-btn {
+            position: absolute;
+            top: 15px; right: 15px;
+            background-color: var(--error-color);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 40px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>手势魔法屋 - Gesture Magic Hub</h1>
+        <p>一个基于实时手势识别的互动应用展示平台</p>
+    </header>
+
+    <div class="container">
+        <section class="main-app">
+            <!-- NEW: Game Overlay -->
+            <div id="game-overlay">
+                <canvas id="game-canvas"></canvas>
+                <button id="close-game-btn" title="关闭游戏">X</button>
+            </div>
+
+            <div class="video-container">
+                <h2>实时摄像头</h2>
+                <img id="video-feed" src="http://127.0.0.1:8000/video_feed" alt="正在加载摄像头画面...">
+            </div>
+            <div class="result-container">
+                <div id="status">正在连接到后端...</div>
+                <div id="gesture-label">当前识别手势</div>
+                <div id="gesture-result">...</div>
+                <div id="action-feedback">请从下方选择一个玩法并激活</div>
+            </div>
+        </section>
+        
+        <section class="features-section">
+            <h2 class="category-title">🎮 游戏与娱乐 (已重制)</h2>
+            <div class="feature-grid">
+                <div class="feature-card" data-mode="fruitNinja">
+                    <h3>玩法一：手势版“水果忍者”</h3>
+                    <p>在限定时间内做出对应的手势“击破”掉落的目标。手势'0'是炸弹！</p>
+                    <button class="activate-btn">激活游戏</button>
+                </div>
+                <div class="feature-card" data-mode="magicSpell">
+                    <h3>玩法三：魔法咒语施法</h3>
+                    <p>按顺序做出手势，组合成一个魔法咒语，见证炫酷的魔法效果！ "7-3-5" (火球), "1-2-3-4" (护盾)。</p>
+                    <button class="activate-btn">激活游戏</button>
+                </div>
+                 <div class="feature-card" data-mode="rhythmMaster">
+                    <h3>玩法二：手势“节奏大师” (待开发)</h3>
+                    <p>当方块到达指定区域时，做出相应的手势。 (此模式为占位符)</p>
+                    <button class="activate-btn" disabled>待开发</button>
+                </div>
+            </div>
+            
+            <h2 class="category-title" style="margin-top: 40px;">⚙️ 智能控制与效率工具 (待开发)</h2>
+            <div class="feature-grid">
+                <!-- Other cards are placeholders -->
+                <div class="feature-card"><h3 style="color:#95a5a6">玩法四：非接触式媒体播放器</h3><p>用手势控制媒体播放。</p><button class="activate-btn" disabled>待开发</button></div>
+                <div class="feature-card"><h3 style="color:#95a5a6">玩法五：演示文稿遥控器</h3><p>用手势控制PPT翻页。</p><button class="activate-btn" disabled>待开发</button></div>
+                <div class="feature-card"><h3 style="color:#95a5a6">玩法六：智能家居快捷指令</h3><p>联动智能家居设备。</p><button class="activate-btn" disabled>待开发</button></div>
+            </div>
+        </section>
+    </div>
+    
+    <footer>
+        <p>© 2024 Gesture WebApp Project. All ideas presented for demonstration purposes.</p>
+    </footer>
+
+        <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- DOM Elements ---
+        const statusEl = document.getElementById('status');
+        const gestureResultEl = document.getElementById('gesture-result');
+        const actionFeedbackEl = document.getElementById('action-feedback');
+        const activateBtns = document.querySelectorAll('.activate-btn:not([disabled])');
+        const gameOverlay = document.getElementById('game-overlay');
+        const gameCanvas = document.getElementById('game-canvas');
+        const closeGameBtn = document.getElementById('close-game-btn');
+
+        // --- App State ---
+        let appState = {
+            ws: null,
+            currentMode: null,
+            lastGesture: null, // 用于比较手势是否变化
+            actionCooldown: false,
+            activeGame: null,
+        };
+
+        // --- WebSocket Connection ---
+        const wsUrl = `ws://${window.location.host}/ws`;
+        function connect() {
+            appState.ws = new WebSocket(wsUrl);
+            appState.ws.onopen = () => {
+                statusEl.textContent = '✅ 已连接到后端';
+                statusEl.style.color = 'var(--success-color)';
+            };
+            
+            // [FIXED] 采用更稳定可靠的 "变化触发" 逻辑
+            appState.ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.gesture === undefined) return;
+                
+                const gesture = data.gesture;
+                gestureResultEl.textContent = (gesture === 'Unknown') ? '?' : gesture;
+                gestureResultEl.style.color = (gesture === 'Unknown') ? '#95a5a6' : 'var(--accent-color)';
+
+                // 核心逻辑：仅当手势发生有效变化，且不在冷却期时，才触发动作
+                if (gesture !== 'Unknown' && gesture !== appState.lastGesture && !appState.actionCooldown) {
+                    if (appState.currentMode && appState.activeGame) {
+                        handleGesture(gesture);
+                    }
+                    // 触发后，设置短暂的冷却时间，防止手势抖动造成连续触发
+                    appState.actionCooldown = true;
+                    setTimeout(() => { appState.actionCooldown = false; }, 300);
+                }
+                
+                // 每一帧都更新上一个手势，用于下一帧的比较
+                appState.lastGesture = gesture;
+            };
+
+            // [FIXED] onclose 事件处理程序被大大简化，使其更安全
+            appState.ws.onclose = () => {
+                statusEl.textContent = '🔌 连接已断开，正在重连...';
+                statusEl.style.color = 'var(--error-color)';
+                
+                // 如果当前有游戏在运行，安全地关闭它
+                if (appState.currentMode) {
+                    deactivateCurrentMode();
+                }
+                // 重置状态
+                appState.lastGesture = null;
+                appState.ws = null;
+
+                // 安全地安排重连
+                setTimeout(connect, 3000);
+            };
+            
+            appState.ws.onerror = (error) => {
+                console.error("WebSocket Error:", error);
+                statusEl.textContent = '❌ 连接失败';
+                statusEl.style.color = 'var(--error-color)';
+                // 触发 onclose 来处理清理和重连
+                if (appState.ws) {
+                    appState.ws.close();
+                }
+            };
+        }
+        
+        // --- Mode Activation Logic ---
+        function deactivateCurrentMode() {
+            if (!appState.currentMode) return;
+
+            // 停止并清理游戏
+            if (appState.activeGame) {
+                appState.activeGame.stop();
+                appState.activeGame = null;
+            }
+            gameOverlay.style.display = 'none';
+
+            const activeCard = document.querySelector('.feature-card.active');
+            if (activeCard) {
+                activeCard.classList.remove('active');
+                const btn = activeCard.querySelector('.activate-btn');
+                if (btn) { // 安全检查
+                    btn.textContent = '激活游戏';
+                    btn.classList.remove('deactivate');
+                }
+            }
+            
+            appState.currentMode = null;
+            actionFeedbackEl.textContent = '请从下方选择一个玩法并激活';
+            actionFeedbackEl.style.color = 'var(--text-color)';
+        }
+
+        function activateMode(mode, cardElement) {
+            if (appState.currentMode === mode) {
+                deactivateCurrentMode();
+                return;
+            }
+            deactivateCurrentMode();
+            
+            appState.currentMode = mode;
+            cardElement.classList.add('active');
+            const btn = cardElement.querySelector('.activate-btn');
+            btn.textContent = '游戏中 (点击取消)';
+            btn.classList.add('deactivate');
+            actionFeedbackEl.textContent = `模式 [${cardElement.querySelector('h3').textContent}] 已激活！`;
+
+            gameOverlay.style.display = 'flex';
+            const mainAppRect = document.querySelector('.main-app').getBoundingClientRect();
+            gameCanvas.width = mainAppRect.width;
+            gameCanvas.height = mainAppRect.height;
+
+            if (mode === 'fruitNinja') {
+                appState.activeGame = new FruitNinjaGame(gameCanvas, deactivateCurrentMode);
+            } else if (mode === 'magicSpell') {
+                appState.activeGame = new MagicSpellGame(gameCanvas, deactivateCurrentMode);
+            }
+            if(appState.activeGame) appState.activeGame.start();
+        }
+        
+        activateBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const card = e.target.closest('.feature-card');
+                const mode = card.dataset.mode;
+                activateMode(mode, card);
+            });
+        });
+        closeGameBtn.addEventListener('click', deactivateCurrentMode);
+
+        function handleGesture(gesture) {
+            if (appState.activeGame && typeof appState.activeGame.handleGesture === 'function') {
+                appState.activeGame.handleGesture(gesture);
+            }
+        }
+        
+        // --- GAME ENGINE AND CLASSES (With Fixes) ---
+
+        class Particle {
+            constructor(x, y, color, size, velocity) {
+                this.x = x; this.y = y; this.color = color; this.size = Math.abs(size);
+                this.velocity = velocity; this.alpha = 1; this.gravity = 0.1; this.friction = 0.99;
+            }
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = this.alpha;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2, false);
+                ctx.fill();
+                ctx.restore();
+            }
+            update() {
+                this.velocity.y += this.gravity;
+                this.velocity.x *= this.friction;
+                this.x += this.velocity.x;
+                this.y += this.velocity.y;
+                this.alpha -= 0.02;
+            }
+        }
+
+        class GameEngine {
+            constructor(canvas, onGameOver) {
+                this.canvas = canvas; this.ctx = canvas.getContext('2d');
+                this.onGameOver = onGameOver; this.gameObjects = [];
+                this.particles = []; this.animationFrameId = null;
+            }
+            start() { this.gameLoop(); }
+            stop() { cancelAnimationFrame(this.animationFrameId); }
+            gameLoop() {
+                this.animationFrameId = requestAnimationFrame(this.gameLoop.bind(this));
+                this.update();
+                this.draw();
+            }
+            update() { /* Implemented by child classes */ }
+            draw() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                this.gameObjects.forEach(obj => obj.draw(this.ctx));
+                // [FIXED] 使用安全的倒序循环来移除粒子，避免跳过元素
+                for (let i = this.particles.length - 1; i >= 0; i--) {
+                    const p = this.particles[i];
+                    if (p.alpha <= 0) {
+                        this.particles.splice(i, 1);
+                    } else {
+                        p.update();
+                        p.draw(this.ctx);
+                    }
+                }
+            }
+            createExplosion(x, y, color, count = 20) {
+                for (let i = 0; i < count; i++) {
+                    const velocity = { x: (Math.random() - 0.5) * 10, y: (Math.random() - 0.5) * 10 };
+                    this.particles.push(new Particle(x, y, color, Math.random() * 4 + 1, velocity));
+                }
+            }
+        }
+
+        class Fruit {
+            constructor(x, y, radius, color, velocity, text) {
+                this.x = x; this.y = y; this.radius = radius; this.color = color;
+                this.velocity = velocity; this.text = text;
+            }
+            draw(ctx) {
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2, false);
+                ctx.fillStyle = this.color; ctx.fill();
+                ctx.fillStyle = 'white'; ctx.font = `bold ${this.radius}px Arial`;
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText(this.text, this.x, this.y);
+            }
+            update() { this.x += this.velocity.x; this.y += this.velocity.y; }
+        }
+
+        class FruitNinjaGame extends GameEngine {
+            constructor(canvas, onGameOver) {
+                super(canvas, onGameOver);
+                this.score = 0; this.timer = 60;
+                this.spawnInterval = 1000; this.lastSpawn = -1;
+                this.colors = ['#e74c3c', '#f1c40f', '#2ecc71', '#3498db', '#9b59b6', '#1abc9c'];
+                this.gameTimerId = null; // [FIXED] 用于存储计时器ID
+            }
+
+            // [FIXED] 将 setInterval 移到 start 方法中
+            start() {
+                super.start();
+                this.gameTimerId = setInterval(() => {
+                    if (this.timer > 0) {
+                        this.timer--;
+                    } else {
+                        this.endGame();
+                    }
+                }, 1000);
+            }
+            
+            // [FIXED] 在 stop 方法中清除计时器，防止内存泄漏
+            stop() {
+                super.stop();
+                clearInterval(this.gameTimerId);
+            }
+
+            update() {
+                const now = Date.now();
+                if (now - this.lastSpawn > this.spawnInterval) {
+                    this.lastSpawn = now;
+                    this.spawnFruit();
+                }
+                this.gameObjects.forEach((fruit, index) => {
+                    fruit.update();
+                    if (fruit.y > this.canvas.height + fruit.radius) {
+                        this.gameObjects.splice(index, 1);
+                    }
+                });
+            }
+
+            draw() {
+                super.draw();
+                this.gameObjects.forEach(obj => obj.draw(this.ctx));
+                this.ctx.fillStyle = 'white'; this.ctx.font = 'bold 32px Arial';
+                this.ctx.textAlign = 'left'; this.ctx.fillText(`Score: ${this.score}`, 20, 40);
+                this.ctx.textAlign = 'right'; this.ctx.fillText(`Time: ${this.timer}`, this.canvas.width - 20, 40);
+            }
+
+            spawnFruit() {
+                const radius = Math.random() * 20 + 30;
+                const x = Math.random() * (this.canvas.width - 2 * radius) + radius;
+                const y = -radius; const velocity = { x: 0, y: Math.random() * 2 + 2 };
+                const type = Math.random() < 0.15 ? '0' : (Math.floor(Math.random() * 9) + 1).toString();
+                const color = type === '0' ? '#34495e' : this.colors[Math.floor(Math.random() * this.colors.length)];
+                this.gameObjects.push(new Fruit(x, y, radius, color, velocity, type));
+            }
+
+            handleGesture(gesture) {
+                let hit = false;
+                for (let i = this.gameObjects.length - 1; i >= 0; i--) {
+                    const fruit = this.gameObjects[i];
+                    if (fruit.text === gesture) {
+                        hit = true;
+                        if (gesture === '0') {
+                            this.score = Math.max(0, this.score - 10);
+                            actionFeedbackEl.textContent = '💥 炸弹! -10分!';
+                            actionFeedbackEl.style.color = 'var(--error-color)';
+                            this.createExplosion(fruit.x, fruit.y, '#7f8c8d');
+                        } else {
+                            this.score += 5;
+                            actionFeedbackEl.textContent = `✅ 击中! +5分!`;
+                            actionFeedbackEl.style.color = 'var(--success-color)';
+                            this.createExplosion(fruit.x, fruit.y, fruit.color);
+                        }
+                        this.gameObjects.splice(i, 1);
+                        break; // 每次只击中一个目标
+                    }
+                }
+                if (!hit) {
+                    actionFeedbackEl.textContent = `❌ 未击中!`;
+                    actionFeedbackEl.style.color = 'var(--info-color)';
+                }
+            }
+            
+            endGame() {
+                if(!this.gameTimerId) return; // 防止重复调用
+                actionFeedbackEl.textContent = `时间到！最终得分: ${this.score}`;
+                this.stop();
+                setTimeout(this.onGameOver, 2000);
+            }
+        }
+        
+        // ... MagicSpellGame class (无重大bug，保持原样) ...
+        class MagicSpellGame extends GameEngine {
+            constructor(canvas, onGameOver) {
+                super(canvas, onGameOver);
+                this.sequence = []; this.sequenceTimeout = null;
+                this.spells = {
+                    '7-3-5': { name: '🔥 火球术', effect: this.castFireball.bind(this) },
+                    '1-2-3-4': { name: '🛡️ 护盾术', effect: this.castShield.bind(this) },
+                    '8-8-8': { name: '⚡️ 闪电风暴', effect: this.castLightning.bind(this) }
+                };
+            }
+            draw() {
+                super.draw();
+                this.ctx.fillStyle = 'white'; this.ctx.font = 'bold 40px Arial';
+                this.ctx.textAlign = 'center'; this.ctx.fillText(this.sequence.join(' - '), this.canvas.width / 2, this.canvas.height - 50);
+            }
+            handleGesture(gesture) {
+                clearTimeout(this.sequenceTimeout); this.sequence.push(gesture);
+                const seqStr = this.sequence.join('-');
+                if (this.spells[seqStr]) {
+                    actionFeedbackEl.textContent = `✨ 施法成功: ${this.spells[seqStr].name}`;
+                    actionFeedbackEl.style.color = 'var(--success-color)';
+                    this.spells[seqStr].effect(); this.sequence = [];
+                } else {
+                    actionFeedbackEl.textContent = '...继续输入咒语...';
+                    actionFeedbackEl.style.color = 'var(--text-color)';
+                    this.sequenceTimeout = setTimeout(() => { this.sequence = []; }, 3000);
+                }
+            }
+            castFireball() {
+                const x = this.canvas.width / 2; const y = this.canvas.height / 2;
+                for (let i = 0; i < 100; i++) {
+                    const angle = Math.random() * Math.PI * 2; const speed = Math.random() * 8 + 2;
+                    const velocity = { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed };
+                    const color = ['#e74c3c', '#f39c12', '#f1c40f'][Math.floor(Math.random() * 3)];
+                    this.particles.push(new Particle(x, y, color, Math.random() * 5 + 2, velocity));
+                }
+            }
+            castShield() {
+                const centerX = this.canvas.width / 2; const centerY = this.canvas.height / 2;
+                const radius = 150;
+                 for (let i = 0; i < 150; i++) {
+                    const angle = (i / 150) * Math.PI * 2;
+                    const x = centerX + Math.cos(angle) * radius; const y = centerY + Math.sin(angle) * radius;
+                    const velocity = { x: (x - centerX) * 0.1, y: (y - centerY) * 0.1 };
+                    this.particles.push(new Particle(x, y, '#3498db', Math.random() * 4 + 1, velocity));
+                }
+            }
+            castLightning() {
+                for (let i = 0; i < 5; i++) { this.createLightningBolt(Math.random() * this.canvas.width, 0); }
+            }
+            createLightningBolt(x, y) {
+                let lastX = x; let lastY = y;
+                while(lastY < this.canvas.height) {
+                    const nextX = lastX + (Math.random() - 0.5) * 40; const nextY = lastY + Math.random() * 20 + 10;
+                    this.particles.push(new Particle(nextX, nextY, '#ecf0f1', Math.random() * 3 + 1, {x:0, y:0}));
+                    lastX = nextX; lastY = nextY;
+                }
+            }
+        }
+        
+        // --- Initial Connect ---
+        connect();
+    });
+    </script>
+</body>
+</html>

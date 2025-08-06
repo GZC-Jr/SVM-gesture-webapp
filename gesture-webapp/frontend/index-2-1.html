@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>手势魔法屋 - Gesture Magic Hub</title>
+    <!-- 引入一个图标库，用于智能家居等模拟 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-bg: #f0f4f8;
+            --secondary-bg: #ffffff;
+            --text-color: #333;
+            --header-bg: #2c3e50;
+            --header-text: #ecf0f1;
+            --accent-color: #3498db;
+            --success-color: #2ecc71;
+            --warning-color: #f39c12;
+            --card-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            --border-radius: 8px;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            background-color: var(--primary-bg);
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        header { background-color: var(--header-bg); color: var(--header-text); padding: 20px 0; text-align: center; border-bottom: 4px solid var(--accent-color); }
+        header h1 { margin: 0; font-size: 2.5rem; }
+        header p { margin: 5px 0 0; font-size: 1.1rem; opacity: 0.9; }
+        .main-app { display: flex; flex-wrap: wrap; gap: 30px; margin-top: 30px; background: var(--secondary-bg); padding: 20px; border-radius: var(--border-radius); box-shadow: var(--card-shadow); }
+        .video-container { flex: 1; min-width: 300px; display: flex; flex-direction: column; align-items: center; }
+        .video-container h2 { margin-top: 0; color: var(--accent-color); }
+        #video-feed { width: 100%; max-width: 640px; height: auto; border-radius: var(--border-radius); border: 2px solid #ddd; background-color: #000; }
+        .result-container { flex: 1; min-width: 300px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+        #status { font-size: 1.2rem; color: #7f8c8d; margin-bottom: 20px; }
+        #gesture-label { font-size: 1.5rem; font-weight: bold; }
+        #gesture-result { font-size: 8rem; font-weight: bold; color: var(--accent-color); margin: 10px 0; line-height: 1; }
+        
+        /* === 新增样式：交互区域 === */
+        .interactive-section {
+            margin-top: 30px;
+            background: var(--secondary-bg);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--card-shadow);
+        }
+        #mode-selector {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            font-size: 1.2rem;
+            border-radius: var(--border-radius);
+            border: 2px solid var(--accent-color);
+            margin-bottom: 20px;
+        }
+        #interactive-area {
+            min-height: 200px;
+            border: 2px dashed #ddd;
+            border-radius: var(--border-radius);
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            text-align: center;
+        }
+        .interactive-panel {
+            width: 100%;
+        }
+        /* 默认隐藏所有面板 */
+        .interactive-panel { display: none; }
+
+        /* 特定玩法的样式 */
+        /* 媒体播放器 */
+        #media-player-panel .icon { font-size: 4rem; margin-bottom: 10px; }
+        #media-player-panel .status-text { font-size: 1.5rem; font-weight: bold; }
+        #media-player-panel .volume-bar { width: 80%; height: 20px; background: #eee; border-radius: 10px; overflow: hidden; margin: 10px auto; }
+        #media-player-volume { height: 100%; background: var(--accent-color); width: 50%; transition: width 0.2s; }
+        
+        /* PPT 演示 */
+        #presentation-panel .slide { font-size: 3rem; font-weight: bold; }
+        
+        /* 智能家居 */
+        #smart-home-panel { display: flex; justify-content: space-around; align-items: center; }
+        .device { text-align: center; }
+        .device .icon { font-size: 4rem; cursor: pointer; transition: color 0.3s; }
+        .device .icon.on { color: var(--warning-color); }
+        .device .label { font-size: 1.2rem; margin-top: 10px; }
+
+        /* 魔法咒语 */
+        #magic-spell-panel .spell-log { font-family: 'Courier New', Courier, monospace; font-size: 1.5rem; background: #2d3436; color: #00b894; padding: 15px; border-radius: 5px; min-height: 50px; }
+        #magic-spell-panel .feedback { margin-top: 15px; font-size: 1.5rem; font-weight: bold; color: var(--success-color); }
+
+        /* PIN码输入 */
+        #pin-input-panel #pin-display { font-size: 3rem; letter-spacing: 10px; background: #eee; padding: 10px 20px; border-radius: 5px; }
+
+        .features-section { margin-top: 40px; }
+        .category-title { font-size: 2rem; color: var(--header-bg); border-bottom: 2px solid var(--accent-color); padding-bottom: 10px; margin-bottom: 20px; }
+        .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
+        .feature-card { background-color: var(--secondary-bg); border-radius: var(--border-radius); box-shadow: var(--card-shadow); padding: 25px; transition: transform 0.3s ease, box-shadow 0.3s ease; }
+        .feature-card:hover { transform: translateY(-5px); box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15); }
+        .feature-card h3 { margin-top: 0; color: var(--accent-color); font-size: 1.5rem; }
+        .feature-card p { margin-bottom: 15px; }
+        .feature-card ul { list-style-type: none; padding-left: 0; }
+        .feature-card li { position: relative; padding-left: 25px; margin-bottom: 10px; }
+        .feature-card li::before { content: '✓'; position: absolute; left: 0; color: var(--accent-color); font-weight: bold; }
+        footer { text-align: center; padding: 20px; margin-top: 40px; color: #7f8c8d; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>手势魔法屋 - Gesture Magic Hub</h1>
+        <p>一个基于实时手势识别的互动应用展示平台</p>
+    </header>
+
+    <div class="container">
+        <!-- 主应用交互区 -->
+        <section class="main-app">
+            <div class="video-container">
+                <h2>实时摄像头</h2>
+                <img id="video-feed" src="http://127.0.0.1:8000/video_feed" alt="正在加载摄像头画面...">
+            </div>
+            <div class="result-container">
+                <div id="status">正在连接到后端...</div>
+                <div id="gesture-label">当前识别手势</div>
+                <div id="gesture-result">...</div>
+            </div>
+        </section>
+
+        <!-- === 新增：玩法选择和交互区域 === -->
+        <section class="interactive-section">
+            <select id="mode-selector">
+                <option value="none" selected>-- 请选择一个玩法模式 --</option>
+                <option value="media-player">玩法四：非接触式媒体播放器</option>
+                <option value="presentation">玩法五：演示文稿遥控器</option>
+                <option value="smart-home">玩法六：智能家居快捷指令</option>
+                <option value="magic-spell">玩法三：魔法咒语施法</option>
+                <option value="pin-input">玩法八：非接触式PIN码输入</option>
+            </select>
+            <div id="interactive-area">
+                <p>请先在上方选择一个玩法模式，然后通过手势进行互动。</p>
+
+                <!-- 媒体播放器面板 -->
+                <div id="media-player-panel" class="interactive-panel">
+                    <div id="media-player-icon" class="icon fa-solid fa-play"></div>
+                    <div id="media-player-status" class="status-text">已暂停</div>
+                    <div class="volume-bar">
+                        <div id="media-player-volume"></div>
+                    </div>
+                </div>
+
+                <!-- PPT 演示面板 -->
+                <div id="presentation-panel" class="interactive-panel">
+                    <div id="presentation-slide" class="slide">第 1 页</div>
+                </div>
+
+                <!-- 智能家居面板 -->
+                <div id="smart-home-panel" class="interactive-panel">
+                    <div class="device">
+                        <i id="light-icon" class="icon fa-solid fa-lightbulb"></i>
+                        <div class="label">书房灯: <span id="light-status">关闭</span></div>
+                    </div>
+                    <div class="device">
+                        <i id="ac-icon" class="icon fa-solid fa-snowflake"></i>
+                        <div class="label">空调: <span id="ac-status">关闭</span></div>
+                    </div>
+                </div>
+
+                <!-- 魔法咒语面板 -->
+                <div id="magic-spell-panel" class="interactive-panel">
+                    <h3>当前咒语序列:</h3>
+                    <div id="spell-log" class="spell-log"></div>
+                    <div id="spell-feedback" class="feedback"></div>
+                </div>
+
+                <!-- PIN码输入面板 -->
+                <div id="pin-input-panel" class="interactive-panel">
+                    <h3>PIN码 (手势0清空): </h3>
+                    <div id="pin-display"></div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 所有玩法展示区 (保持不变) -->
+        <section class="features-section">
+            <h2 class="category-title">🎮 游戏与娱乐 (Gamification & Entertainment)</h2>
+            <div class="feature-grid">
+                <!-- ... 省略未变的玩法卡片 ... -->
+            </div>
+            
+            <h2 class="category-title" style="margin-top: 40px;">⚙️ 智能控制与效率工具 (Smart Control & Productivity)</h2>
+            <div class="feature-grid">
+                 <!-- ... 省略未变的玩法卡片 ... -->
+            </div>
+
+            <h2 class="category-title" style="margin-top: 40px;">❤️ 教育与辅助功能 (Education & Accessibility)</h2>
+            <div class="feature-grid">
+                 <!-- ... 省略未变的玩法卡片 ... -->
+            </div>
+        </section>
+    </div>
+    
+    <footer>
+        <p>© 2024 Gesture WebApp Project. All ideas presented for demonstration purposes.</p>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', (event) => {
+            // === 1. 获取所有需要的 DOM 元素 ===
+            const statusEl = document.getElementById('status');
+            const gestureResultEl = document.getElementById('gesture-result');
+            const modeSelector = document.getElementById('mode-selector');
+            const interactiveArea = document.getElementById('interactive-area');
+            const allPanels = document.querySelectorAll('.interactive-panel');
+            
+            // 媒体播放器元素
+            const mediaPlayerPanel = document.getElementById('media-player-panel');
+            const mediaPlayerIcon = document.getElementById('media-player-icon');
+            const mediaPlayerStatus = document.getElementById('media-player-status');
+            const mediaPlayerVolume = document.getElementById('media-player-volume');
+
+            // PPT 元素
+            const presentationPanel = document.getElementById('presentation-panel');
+            const presentationSlide = document.getElementById('presentation-slide');
+
+            // 智能家居元素
+            const smartHomePanel = document.getElementById('smart-home-panel');
+            const lightIcon = document.getElementById('light-icon');
+            const lightStatus = document.getElementById('light-status');
+            const acIcon = document.getElementById('ac-icon');
+            const acStatus = document.getElementById('ac-status');
+            
+            // 魔法咒语元素
+            const magicSpellPanel = document.getElementById('magic-spell-panel');
+            const spellLog = document.getElementById('spell-log');
+            const spellFeedback = document.getElementById('spell-feedback');
+
+            // PIN码元素
+            const pinInputPanel = document.getElementById('pin-input-panel');
+            const pinDisplay = document.getElementById('pin-display');
+
+            // === 2. 初始化状态变量 ===
+            let lastGesture = null; // 用于防止重复触发
+            let currentMode = 'none'; // 当前玩法模式
+            
+            // 各模式的状态
+            let isPlaying = false;
+            let volume = 50;
+            let currentSlide = 1;
+            let isLightOn = false;
+            let isAcOn = false;
+            let spellSequence = [];
+            let pinCode = "";
+
+            // === 3. 核心功能函数 ===
+
+            // 模式切换函数
+            modeSelector.addEventListener('change', (e) => {
+                currentMode = e.target.value;
+                // 隐藏所有面板
+                allPanels.forEach(panel => panel.style.display = 'none');
+                interactiveArea.querySelector('p').style.display = 'none'; // 隐藏初始提示
+
+                // 重置所有状态
+                resetAllStates();
+
+                // 显示对应模式的面板
+                switch (currentMode) {
+                    case 'media-player':
+                        mediaPlayerPanel.style.display = 'block';
+                        break;
+                    case 'presentation':
+                        presentationPanel.style.display = 'block';
+                        break;
+                    case 'smart-home':
+                        smartHomePanel.style.display = 'flex';
+                        break;
+                    case 'magic-spell':
+                        magicSpellPanel.style.display = 'block';
+                        break;
+                    case 'pin-input':
+                        pinInputPanel.style.display = 'block';
+                        break;
+                    default:
+                         interactiveArea.querySelector('p').style.display = 'block';
+                }
+            });
+
+            function resetAllStates() {
+                // 媒体播放器
+                isPlaying = false;
+                volume = 50;
+                mediaPlayerIcon.className = 'icon fa-solid fa-play';
+                mediaPlayerStatus.textContent = '已暂停';
+                mediaPlayerVolume.style.width = '50%';
+                
+                // PPT
+                currentSlide = 1;
+                presentationSlide.textContent = '第 1 页';
+
+                // 智能家居
+                isLightOn = false;
+                isAcOn = false;
+                lightIcon.classList.remove('on');
+                lightStatus.textContent = '关闭';
+                acIcon.classList.remove('on');
+                acStatus.textContent = '关闭';
+
+                // 魔法
+                spellSequence = [];
+                spellLog.textContent = '';
+                spellFeedback.textContent = '';
+
+                // PIN
+                pinCode = "";
+                pinDisplay.textContent = "";
+            }
+
+            // WebSocket 连接逻辑
+            const wsUrl = 'ws://127.0.0.1:8000/ws';
+            
+            function connect() {
+                const ws = new WebSocket(wsUrl);
+
+                ws.onopen = () => {
+                    statusEl.textContent = '✅ 已连接到后端';
+                    statusEl.style.color = 'var(--success-color)';
+                };
+
+                ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    
+                    // 更新UI显示当前手势
+                    const gesture = data.gesture;
+                    gestureResultEl.textContent = (gesture === null || gesture === 'Unknown') ? '?' : gesture;
+                    gestureResultEl.style.color = (gesture === null || gesture === 'Unknown') ? '#95a5a6' : 'var(--accent-color)';
+
+                    // === 核心逻辑：只有当手势发生变化时才触发事件 ===
+                    if (gesture === lastGesture || gesture === 'Unknown' || gesture === null) {
+                        return; // 如果手势未变或未知，则不执行任何操作
+                    }
+                    lastGesture = gesture; // 更新上一个手势
+
+                    // 根据当前模式执行不同操作
+                    handleGesture(gesture);
+                };
+
+                ws.onclose = () => {
+                    statusEl.textContent = '🔌 连接已断开，正在尝试重连...';
+                    statusEl.style.color = '#e74c3c';
+                    gestureResultEl.textContent = '...';
+                    lastGesture = null;
+                    setTimeout(connect, 3000);
+                };
+
+                ws.onerror = (error) => {
+                    statusEl.textContent = '❌ 连接失败';
+                    statusEl.style.color = '#e74c3c';
+                    ws.close();
+                };
+            }
+            
+            // 手势处理分发
+            function handleGesture(gesture) {
+                switch (currentMode) {
+                    case 'media-player': handleMediaPlayer(gesture); break;
+                    case 'presentation': handlePresentation(gesture); break;
+                    case 'smart-home': handleSmartHome(gesture); break;
+                    case 'magic-spell': handleMagicSpell(gesture); break;
+                    case 'pin-input': handlePinInput(gesture); break;
+                }
+            }
+
+            // === 4. 各个模式的具体实现 ===
+
+            function handleMediaPlayer(gesture) {
+                switch (gesture) {
+                    case '1': // 播放/暂停
+                        isPlaying = !isPlaying;
+                        mediaPlayerIcon.className = isPlaying ? 'icon fa-solid fa-pause' : 'icon fa-solid fa-play';
+                        mediaPlayerStatus.textContent = isPlaying ? '正在播放' : '已暂停';
+                        break;
+                    case '5': // 音量+
+                        volume = Math.min(100, volume + 10);
+                        mediaPlayerVolume.style.width = volume + '%';
+                        break;
+                    case '4': // 音量-
+                        volume = Math.max(0, volume - 10);
+                        mediaPlayerVolume.style.width = volume + '%';
+                        break;
+                    case '2': // 下一首
+                        mediaPlayerStatus.textContent = '下一首';
+                        break;
+                    case '3': // 上一首
+                        mediaPlayerStatus.textContent = '上一首';
+                        break;
+                    case '0': // 静音
+                        volume = 0;
+                        mediaPlayerVolume.style.width = '0%';
+                        break;
+                }
+            }
+
+            function handlePresentation(gesture) {
+                switch (gesture) {
+                    case '1': // 下一页
+                        currentSlide++;
+                        break;
+                    case '2': // 上一页
+                        currentSlide = Math.max(1, currentSlide - 1);
+                        break;
+                    case '5': // 跳转到第5页
+                        currentSlide = 5;
+                        break;
+                    case '0': // 黑屏
+                         presentationSlide.textContent = '黑屏模式';
+                         return; // 避免覆盖
+                }
+                presentationSlide.textContent = `第 ${currentSlide} 页`;
+            }
+
+            function handleSmartHome(gesture) {
+                switch (gesture) {
+                    case '1': // 开/关灯
+                        isLightOn = !isLightOn;
+                        lightIcon.classList.toggle('on', isLightOn);
+                        lightStatus.textContent = isLightOn ? '开启' : '关闭';
+                        break;
+                    case '2': // 开/关空调
+                        isAcOn = !isAcOn;
+                        acIcon.classList.toggle('on', isAcOn);
+                        acStatus.textContent = isAcOn ? '开启 (22°C)' : '关闭';
+                        break;
+                }
+            }
+
+            function handleMagicSpell(gesture) {
+                spellFeedback.textContent = ''; // 清除上次反馈
+                spellSequence.push(gesture);
+                spellLog.textContent = spellSequence.join(' -> ');
+
+                // 检查咒语
+                const sequenceStr = spellSequence.join('-');
+                if (sequenceStr.endsWith('7-3-5')) {
+                    spellFeedback.textContent = '🔥 火球术已释放！';
+                    spellSequence = []; // 成功后清空
+                } else if (sequenceStr.endsWith('1-2-3-4')) {
+                    spellFeedback.textContent = '🛡️ 护盾已生成！';
+                    spellSequence = [];
+                }
+
+                // 防止序列过长
+                if (spellSequence.length > 10) {
+                    spellSequence.shift(); // 移除最早的一个
+                }
+            }
+
+            function handlePinInput(gesture) {
+                if (gesture === '0') {
+                    pinCode = "";
+                } else if (pinCode.length < 6) { // 最多6位
+                    pinCode += gesture;
+                }
+                pinDisplay.textContent = '*'.repeat(pinCode.length);
+            }
+
+
+            // 初始连接
+            connect();
+        });
+    </script>
+</body>
+</html>
